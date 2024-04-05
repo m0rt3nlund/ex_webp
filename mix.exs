@@ -7,6 +7,7 @@ defmodule ExWebp.MixProject do
       version: "0.1.3",
       elixir: "~> 1.16",
       start_permanent: Mix.env() == :prod,
+      package: package(),
       deps: deps()
     ]
   end
@@ -15,6 +16,15 @@ defmodule ExWebp.MixProject do
   def application do
     [
       extra_applications: [:logger]
+    ]
+  end
+
+  defp package do
+    [
+      maintainers: ["Morten Lund, originally Ryo Okamoto"],
+      licenses: ["MIT"],
+      links: %{"GitHub" => "https://github.com/ryochin/thumbp"},
+      files: ~w(mix.exs README.md lib native checksum-*.exs .formatter.exs)
     ]
   end
 

@@ -8,8 +8,8 @@ defmodule ExWebp do
 
   use RustlerPrecompiled,
     otp_app: :ex_webp,
-    crate: "thumbp",
-    base_url: "https://github.com/ryochin/thumbp/releases/download/v#{version}",
+    crate: "webp",
+    base_url: "https://unidash.ddns.net/maskon/ex_webp/priv/native",
     force_build: System.get_env("RUSTLER_PRECOMPILATION_EXAMPLE_BUILD") in ["1", "true"],
     version: version
 
