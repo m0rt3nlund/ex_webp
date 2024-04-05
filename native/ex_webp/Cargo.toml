@@ -1,0 +1,22 @@
+[package]
+name = "ex_webp"
+version = "0.1.0"
+authors = []
+edition = "2024"
+
+[lib]
+name = "ex_webp"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+image = "0.24"
+libwebp-sys = "0.9"
+rustler = "0.30.0"
+webp = "0.2"
+
+[profile.release]
+codegen-units = 1
+lto = true
+panic = 'abort'
+strip = "debuginfo"
