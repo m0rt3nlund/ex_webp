@@ -2,9 +2,9 @@ cargo-features = ["edition2024"]
 
 [package]
 name = "ex_webp"
-version = "0.1.0"
+version = "0.1.3"
 authors = []
-edition = "2024"
+edition = "2021"
 
 [lib]
 name = "ex_webp"
