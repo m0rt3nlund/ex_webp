@@ -9,18 +9,31 @@ defmodule ExWebp do
   use RustlerPrecompiled,
     otp_app: :ex_webp,
     crate: "ex_webp",
-    force_build: false,
+    force_build: System.get_env("RUSTLER_COMPILE") in ["1", "true"],
     base_url: "https://github.com/m0rt3nlund/ex_webp/releases/download/v#{version}",
     version: version
 
-  @spec encode(body :: binary, width :: pos_integer, height :: pos_integer, opts :: Keyword.t()) ::
+  @spec encode(body :: binary, opts :: Keyword.t()) ::
           {:ok, :binary}
           | {:error, String.t()}
-  def encode(body, width, height, opts) do
+  def encode(body, opts) do
+    width = Keyword.get(opts, :width, 0)
+    height = Keyword.get(opts, :height, 0)
+    resize_percent = Keyword.get(opts, :resize_percent, 0.0)
+
     with {:ok, quality} <- verify_quality(Keyword.get(opts, :quality, 50)) do
       lossless = if Keyword.get(opts, :lossless, false), do: 1, else: 0
 
-      _encode(body, width, height, lossless, quality)
+      _encode(
+        body,
+        %{
+          width: width,
+          height: height,
+          resize_percent: resize_percent,
+          lossless: lossless,
+          quality: quality
+        }
+      )
     end
   end
 
@@ -40,13 +53,10 @@ defmodule ExWebp do
   # NIF function definition
   @spec _encode(
           body :: binary,
-          width :: pos_integer,
-          height :: pos_integer,
-          lossless :: integer,
-          quality :: pos_integer
+          config :: map
         ) ::
           {:ok, binary} | {:error, String.t()}
-  defp _encode(_body, _width, _height, _lossless, _quality),
+  defp _encode(_body, _config),
     do: :erlang.nif_error(:nif_not_loaded)
 
   @spec _decode(body :: binary) ::

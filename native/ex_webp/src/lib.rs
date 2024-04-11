@@ -1,11 +1,11 @@
 use rustler::types::tuple::make_tuple;
-use rustler::{Binary, Decoder, Encoder, Env, Error, NifResult, OwnedBinary, Term};
+use rustler::{Binary, Decoder, Encoder, Env, NifMap, NifResult, OwnedBinary, Term};
 mod shared;
 use crate::shared::{PixelLayout, WebPImage, WebPMemory};
 use image::DynamicImage::{self, ImageRgba8};
 use image::{imageops, EncodableLayout};
 use libwebp_sys::*;
-use webp::{Decoder as WebPDecoder, Encoder as WebPEncoder, WebPConfig};
+use webp::{Decoder as WebPDecoder, Encoder as WebPEncoder};
 
 const DEFAULT_QUALITY: f32 = 60.0;
 
@@ -15,27 +15,35 @@ mod atoms {
     }
 }
 
+#[derive(NifMap)]
+pub struct EncodeConfig {
+    pub width: u32,
+    pub height: u32,
+    pub resize_percent: f32,
+    pub lossless: i32,
+    pub quality: Option<f32>,
+}
+
 #[rustler::nif(schedule = "DirtyCpu")]
-fn _encode<'a>(
-    env: Env<'a>,
-    body: Binary<'a>,
-    width: u32,
-    height: u32,
-    lossless: i32,
-    quality: Option<f32>,
-) -> NifResult<Term<'a>> {
+fn _encode<'a>(env: Env<'a>, body: Binary<'a>, config: EncodeConfig) -> NifResult<Term<'a>> {
     let image: DynamicImage =
         image::load_from_memory(body.as_slice()).map_err(|e| err_str(e.to_string()))?;
+    let mut encoder: WebPEncoder;
 
-    let (width, height) = calc_dimension(&image, width, height);
-
-    let thumbnail: DynamicImage = ImageRgba8(imageops::thumbnail(&image, width, height));
+    // Check if we need to resize the image, either by percent or dimensions
+    let image: DynamicImage = if config.resize_percent > 0.0 {
+        resize_percent(&image, config.resize_percent)
+    } else if config.width > 0 && config.height > 0 {
+        resize_dimensions(&image, config.width, config.height)
+    } else {
+        image
+    };
 
     let encoder: WebPEncoder =
-        WebPEncoder::from_image(&thumbnail).map_err(|e| err_str(e.to_string()))?;
+        WebPEncoder::from_image(&image).map_err(|e| err_str(e.to_string()))?;
 
     let webp = encoder
-        .encode_advanced(&webp_config(lossless, quality)?)
+        .encode_advanced(&webp_config(config.lossless, config.quality)?)
         .map_err(|e| err_str(format!("{:?}", e)))?;
 
     let bytes: &[u8] = webp.as_bytes();
@@ -50,6 +58,21 @@ fn _encode<'a>(
     Ok(make_tuple(env, &[ok, binary.release(env).encode(env)]))
 }
 
+fn resize_percent(image: &DynamicImage, percent: f32) -> DynamicImage {
+    let width = ((image.width() as f32) * percent / 100.0).round() as u32;
+    let height = ((image.height() as f32) * percent / 100.0).round() as u32;
+    let resized_image: DynamicImage = ImageRgba8(imageops::thumbnail(image, width, height));
+
+    return resized_image;
+}
+
+fn resize_dimensions(image: &DynamicImage, width: u32, height: u32) -> DynamicImage {
+    let (width, height) = calc_dimension(&image, width, height);
+
+    let resized_image: DynamicImage = ImageRgba8(imageops::thumbnail(image, width, height));
+    return resized_image;
+}
+
 #[rustler::nif(schedule = "DirtyCpu")]
 fn _decode<'a>(env: Env<'a>, body: Binary<'a>) -> NifResult<Term<'a>> {
     let bytes = body.as_slice();
@@ -58,8 +81,6 @@ fn _decode<'a>(env: Env<'a>, body: Binary<'a>) -> NifResult<Term<'a>> {
         .ok_or_else(|| err_str("failed to allocate binary".to_string()))?;
 
     if features.has_animation() {
-        let ok = atoms::ok().encode(env);
-
         return Err(err_str("Animations are not supported".to_string()));
     }
 
@@ -124,7 +145,7 @@ fn webp_config(lossless: i32, quality: Option<f32>) -> NifResult<WebPConfig> {
 
     config.lossless = lossless;
     config.method = 2;
-    config.image_hint = WebPImageHint::WEBP_HINT_PHOTO;
+    config.image_hint = WebPImageHint::WEBP_HINT_PICTURE;
     config.sns_strength = 70;
     config.filter_sharpness = 0;
     config.filter_strength = 25;
