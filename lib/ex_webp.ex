@@ -6,13 +6,11 @@ defmodule ExWebp do
 
   version = Mix.Project.config()[:version]
 
-  bypass = Bypass.open()
-
   use RustlerPrecompiled,
     otp_app: :ex_webp,
     crate: "ex_webp",
-    force_build: true,
-    base_url: "http://localhost:#{bypass.port()}/download",
+    force_build: false,
+    base_url: "https://github.com/m0rt3nlund/ex_webp/releases/download/v#{version}",
     version: version
 
   @spec encode(body :: binary, width :: pos_integer, height :: pos_integer, opts :: Keyword.t()) ::
