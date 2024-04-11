@@ -1,6 +1,6 @@
 # ExWebp
 
-**TODO: Add description**
+This library is based on the work done by https://github.com/ryochin/thumbp
 
 ## Installation
 
@@ -10,7 +10,7 @@ by adding `ex_webp` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:ex_webp, "~> 0.1.0"}
+    {:ex_webp, "~> 0.1.3"}
   ]
 end
 ```
