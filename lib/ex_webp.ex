@@ -11,7 +11,7 @@ defmodule ExWebp do
     crate: "ex_webp",
     force_build: false,
     base_url: "https://github.com/m0rt3nlund/ex_webp/releases/download/v#{version}",
-    version: ""
+    version: version
 
   @spec encode(body :: binary, width :: pos_integer, height :: pos_integer, opts :: Keyword.t()) ::
           {:ok, :binary}
