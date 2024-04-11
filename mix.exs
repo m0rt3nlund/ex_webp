@@ -5,7 +5,7 @@ defmodule ExWebp.MixProject do
     [
       app: :ex_webp,
       version: "0.1.3",
-      elixir: "~> 1.16",
+      elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       package: package(),
       deps: deps()
