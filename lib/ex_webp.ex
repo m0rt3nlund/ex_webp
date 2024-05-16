@@ -9,7 +9,7 @@ defmodule ExWebp do
   use RustlerPrecompiled,
     otp_app: :ex_webp,
     crate: "ex_webp",
-    force_build: true,
+    force_build: System.get_env("RUSTLER_COMPILE") in ["1", "true"],
     base_url: "https://github.com/m0rt3nlund/ex_webp/releases/download/v#{version}",
     version: version
 
