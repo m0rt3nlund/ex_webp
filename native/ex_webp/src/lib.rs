@@ -5,6 +5,7 @@ use crate::shared::{PixelLayout, WebPImage, WebPMemory};
 use image::DynamicImage::{self, ImageRgba8};
 use image::{imageops, EncodableLayout};
 use libwebp_sys::*;
+use rustler::ErlOption;
 use webp::{Decoder as WebPDecoder, Encoder as WebPEncoder};
 
 const DEFAULT_QUALITY: f32 = 60.0;
@@ -15,11 +16,20 @@ mod atoms {
     }
 }
 
+#[derive(NifMap, Clone, Copy)]
+pub struct CropConfig {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
+}
+
 #[derive(NifMap)]
 pub struct EncodeConfig {
     pub width: u32,
     pub height: u32,
     pub resize_percent: f32,
+    pub crop: ErlOption<CropConfig>,
     pub lossless: i32,
     pub quality: Option<f32>,
 }
@@ -31,7 +41,13 @@ fn _encode<'a>(env: Env<'a>, body: Binary<'a>, config: EncodeConfig) -> NifResul
     let mut encoder: WebPEncoder;
 
     // Check if we need to resize the image, either by percent or dimensions
-    let image: DynamicImage = if config.resize_percent > 0.0 {
+    let image: DynamicImage = if !config.crop.is_none() {
+        let x: u32 = config.crop.as_ref().map(|x| x.x).unwrap();
+        let y: u32 = config.crop.as_ref().map(|x| x.y).unwrap();
+        let width: u32 = config.crop.as_ref().map(|x| x.width).unwrap();
+        let height: u32 = config.crop.as_ref().map(|x| x.height).unwrap();
+        crop(&image, x, y, width, height)
+    } else if config.resize_percent > 0.0 {
         resize_percent(&image, config.resize_percent)
     } else if config.width > 0 && config.height > 0 {
         resize_dimensions(&image, config.width, config.height)
@@ -56,6 +72,12 @@ fn _encode<'a>(env: Env<'a>, body: Binary<'a>, config: EncodeConfig) -> NifResul
     let ok = atoms::ok().encode(env);
 
     Ok(make_tuple(env, &[ok, binary.release(env).encode(env)]))
+}
+
+fn crop(image: &DynamicImage, x: u32, y: u32, width: u32, height: u32) -> DynamicImage {
+    let sub_image = imageops::crop_imm(image, x, y, width, height);
+    let cropped_image: DynamicImage = ImageRgba8(sub_image.to_image());
+    return cropped_image;
 }
 
 fn resize_percent(image: &DynamicImage, percent: f32) -> DynamicImage {
