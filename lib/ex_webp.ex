@@ -18,10 +18,10 @@ defmodule ExWebp do
           | {:error, String.t()}
   def encode(body, opts) do
     encode_opts = %{
-      width: Keyword.get(opts, :width, 0),
-      height: Keyword.get(opts, :height, 0),
+      width: abs(Keyword.get(opts, :width, 0)),
+      height: abs(Keyword.get(opts, :height, 0)),
       lossless: if(Keyword.get(opts, :lossless, false), do: 1, else: 0),
-      resize_percent: Keyword.get(opts, :resize_percent, 0.0)
+      resize_percent: abs(Keyword.get(opts, :resize_percent, 0.0))
     }
 
     with {:ok, encode_opts} <-
@@ -45,8 +45,8 @@ defmodule ExWebp do
 
   defp verify_crop_options(opts, nil), do: {:ok, Map.put(opts, :crop, :undefined)}
 
-  defp verify_crop_options(opts, %{x: _x, y: _y, width: _width, height: _height} = crop_params) do
-    {:ok, Map.put(opts, :crop, crop_params)}
+  defp verify_crop_options(opts, %{x: x, y: y, width: width, height: height}) do
+    {:ok, Map.put(opts, :crop, %{x: abs(x), y: abs(y), width: abs(width), height: abs(height)})}
   end
 
   defp verify_crop_options(_opts, _), do: {:error, "Invalid crop options"}

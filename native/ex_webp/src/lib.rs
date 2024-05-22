@@ -75,7 +75,11 @@ fn _encode<'a>(env: Env<'a>, body: Binary<'a>, config: EncodeConfig) -> NifResul
 }
 
 fn crop(image: &DynamicImage, x: u32, y: u32, width: u32, height: u32) -> DynamicImage {
-    let sub_image = imageops::crop_imm(image, x, y, width, height);
+    let x_clamped = x.clamp(0, image.width());
+    let y_clamped = y.clamp(0, image.height());
+    let width_clamped = width.clamp(0, image.width());
+    let height_clamped = height.clamp(0, image.height());
+    let sub_image = imageops::crop_imm(image, x_clamped, y_clamped, width_clamped, height_clamped);
     let cropped_image: DynamicImage = ImageRgba8(sub_image.to_image());
     return cropped_image;
 }
