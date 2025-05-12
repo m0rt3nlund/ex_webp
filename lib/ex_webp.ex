@@ -13,8 +13,8 @@ defmodule ExWebp do
     base_url: "https://github.com/m0rt3nlund/ex_webp/releases/download/v#{version}",
     version: version
 
-  @spec encode(body :: binary, opts :: Keyword.t()) ::
-          {:ok, :binary}
+  @spec encode(body :: binary(), opts :: Keyword.t()) ::
+          {:ok, binary()}
           | {:error, String.t()}
   def encode(body, opts) do
     encode_opts = %{
