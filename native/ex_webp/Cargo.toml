@@ -15,7 +15,10 @@ img = []
 [dependencies]
 image = "0.25.6"
 libwebp-sys = "0.9.3"
-rustler = "0.36.2"
+rustler = { version = "0.36.2", default-features = false, features = [
+    "derive",
+    "nif_version_2_15",
+] }
 webp = "0.3"
 
 [profile.release]
