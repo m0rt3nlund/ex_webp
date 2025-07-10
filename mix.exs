@@ -1,7 +1,7 @@
 defmodule ExWebp.MixProject do
   use Mix.Project
 
-  @version "0.1.6"
+  @version "0.1.8"
 
   def project do
     [
