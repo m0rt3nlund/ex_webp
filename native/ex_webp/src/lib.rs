@@ -4,9 +4,9 @@ mod shared;
 use crate::shared::{PixelLayout, WebPImage, WebPMemory};
 use image::DynamicImage::{self, ImageRgba8};
 use image::{imageops, EncodableLayout};
-use libwebp_sys::*;
+use libwebp_sys::{WebPImageHint, WebPDecodeRGB, WebPDecodeRGBA, WebPGetFeatures, VP8StatusCode, WebPBitstreamFeatures};
 use rustler::ErlOption;
-use webp::{Decoder as WebPDecoder, Encoder as WebPEncoder};
+use webp::{Decoder as WebPDecoder, Encoder as WebPEncoder, WebPConfig};
 
 const DEFAULT_QUALITY: f32 = 60.0;
 

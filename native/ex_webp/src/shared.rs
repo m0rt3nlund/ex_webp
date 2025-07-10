@@ -1,8 +1,6 @@
 use std::fmt::{Debug, Error, Formatter};
 use std::ops::{Deref, DerefMut};
 
-#[cfg(feature = "img")]
-use image::*;
 use libwebp_sys::{WebPFree, WebPPicture, WebPPictureFree};
 
 /// This struct represents a safe wrapper around memory owned by libwebp.
