@@ -24,3 +24,7 @@ ex_webp-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+speakers-*.tar
+/.elixir_ls
+/priv/native/*.so
+/priv/native/*.dll
