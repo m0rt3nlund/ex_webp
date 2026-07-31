@@ -34,7 +34,10 @@ defmodule ExWebp.MixProject do
   defp deps do
     [
       {:rustler_precompiled, "~> 0.8"},
-      {:rustler, "~> 0.37", optional: true}
+      {:rustler, "~> 0.37", optional: true},
+
+      # Release tools
+      {:version_tasks, "~> 0.12.0", only: [:dev], runtime: false}
     ]
   end
 end
