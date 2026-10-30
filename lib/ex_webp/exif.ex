@@ -15,6 +15,18 @@ defmodule ExWebp.Exif do
   | `:user_comment`, `:image_unique_id`          | string                                     |
   | `:gps_latitude`, `:gps_longitude`            | number, signed degrees                     |
   | `:gps_altitude`                              | number, metres (negative is below sea)     |
+  | `:detections`                                | list of maps, see below                    |
+
+  ## Detections
+
+  `:detections` is a list of maps (atom or string keys, JSON encodable values) that is stored as
+  JSON in the `UserComment`, together with a plain `:user_comment` when there is one:
+
+      {"v":1,"comment":"Job 123","detections":[{"class":"cod","confidence":0.93,"x":12,...}]}
+
+  Floats are rounded to 4 decimals. `decode/1` gives the list back as `:detections` with atom
+  keys for the keys it knows (`class`, `confidence`, `x`, `y`, `width`, `height`, `angle`, `area`,
+  `id`) and string keys for the rest. The whole EXIF has to fit in 64 KB, a few hundred detections.
   """
 
   @ifd0 [
@@ -37,6 +49,9 @@ defmodule ExWebp.Exif do
 
   @gps_keys [:gps_latitude, :gps_longitude, :gps_altitude]
 
+  @max_size 65_000
+  @known_detection_keys ~w(class confidence x y width height angle area id)
+
   @exif_pointer 0x8769
   @gps_pointer 0x8825
 
@@ -46,13 +61,13 @@ defmodule ExWebp.Exif do
   @spec encode(fields()) :: {:ok, binary()} | {:error, String.t()}
   def encode(fields) when is_map(fields) do
     with {:ok, fields} <- normalize(fields),
+         {:ok, fields} <- merge_detections(fields),
          {:ok, ifd0} <- entries(fields, @ifd0),
          {:ok, exif} <- entries(fields, @exif),
          {:ok, gps} <- gps_entries(fields) do
-      if ifd0 == [] and exif == [] and gps == [] do
-        {:error, "No EXIF fields provided"}
-      else
-        {:ok, layout(ifd0, exif, gps)}
+      cond do
+        ifd0 == [] and exif == [] and gps == [] -> {:error, "No EXIF fields provided"}
+        true -> check_size(layout(ifd0, exif, gps))
       end
     end
   end
@@ -69,10 +84,10 @@ defmodule ExWebp.Exif do
       gps = sub_ifd(tiff, ifd0, @gps_pointer, endian)
 
       {:ok,
-       Map.new(
-         decode_known(ifd0, @ifd0, tiff, endian) ++
-           decode_known(exif, @exif, tiff, endian) ++ decode_gps(gps, tiff, endian)
-       )}
+       (decode_known(ifd0, @ifd0, tiff, endian) ++
+          decode_known(exif, @exif, tiff, endian) ++ decode_gps(gps, tiff, endian))
+       |> Map.new()
+       |> split_detections()}
     else
       _ -> {:error, "Invalid EXIF data"}
     end
@@ -82,8 +97,41 @@ defmodule ExWebp.Exif do
 
   # --- Encoding ---
 
+  defp check_size(tiff) when byte_size(tiff) > @max_size,
+    do: {:error, "EXIF data is too large (#{byte_size(tiff)} B, max #{@max_size} B)"}
+
+  defp check_size(tiff), do: {:ok, tiff}
+
+  # The detections go in the UserComment as JSON, next to a comment given as text
+  defp merge_detections(%{detections: detections} = fields) when is_list(detections) do
+    document =
+      %{"v" => 1, "detections" => Enum.map(detections, &json_value/1)}
+      |> then(fn doc ->
+        case Map.fetch(fields, :user_comment) do
+          {:ok, comment} when is_binary(comment) -> Map.put(doc, "comment", comment)
+          _ -> doc
+        end
+      end)
+
+    {:ok, fields |> Map.delete(:detections) |> Map.put(:user_comment, JSON.encode!(document))}
+  rescue
+    _ -> {:error, "Invalid value for EXIF key `detections`"}
+  end
+
+  defp merge_detections(%{detections: _}), do: {:error, "Invalid value for EXIF key `detections`"}
+  defp merge_detections(fields), do: {:ok, fields}
+
+  defp json_value(value) when is_float(value), do: Float.round(value, 4)
+  defp json_value(%_{} = struct), do: raise(ArgumentError, "unsupported #{inspect(struct)}")
+
+  defp json_value(map) when is_map(map),
+    do: Map.new(map, fn {key, value} -> {to_string(key), json_value(value)} end)
+
+  defp json_value(list) when is_list(list), do: Enum.map(list, &json_value/1)
+  defp json_value(value), do: value
+
   defp normalize(fields) do
-    known = Enum.map(@ifd0 ++ @exif, &elem(&1, 0)) ++ @gps_keys
+    known = Enum.map(@ifd0 ++ @exif, &elem(&1, 0)) ++ @gps_keys ++ [:detections]
 
     Enum.reduce_while(fields, {:ok, %{}}, fn {key, value}, {:ok, acc} ->
       name =
@@ -246,6 +294,27 @@ defmodule ExWebp.Exif do
   defp pad_even(size), do: size + rem(size, 2)
 
   # --- Decoding ---
+
+  defp split_detections(%{user_comment: comment} = fields) do
+    with {:ok, %{"detections" => detections} = document} when is_list(detections) <-
+           JSON.decode(comment) do
+      fields = Map.delete(fields, :user_comment)
+      fields = if c = document["comment"], do: Map.put(fields, :user_comment, c), else: fields
+      Map.put(fields, :detections, Enum.map(detections, &atomize/1))
+    else
+      _ -> fields
+    end
+  end
+
+  defp split_detections(fields), do: fields
+
+  defp atomize(%{} = detection) do
+    Map.new(detection, fn {key, value} ->
+      {if(key in @known_detection_keys, do: String.to_atom(key), else: key), value}
+    end)
+  end
+
+  defp atomize(value), do: value
 
   defp uint(bin, :little), do: :binary.decode_unsigned(bin, :little)
   defp uint(bin, :big), do: :binary.decode_unsigned(bin, :big)

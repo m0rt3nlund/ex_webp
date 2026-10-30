@@ -92,6 +92,88 @@ defmodule ExWebp.ExifTest do
     end
   end
 
+  describe "detections" do
+    defp detections(count) do
+      for i <- 1..count do
+        base = %{
+          class: "cod",
+          confidence: 0.93456789 - i / 10_000,
+          x: i * 1.0,
+          y: 40.55555,
+          width: 200,
+          height: 90
+        }
+
+        # Detections with a segment also carry the area of their shape
+        if rem(i, 2) == 0, do: Map.put(base, :area, 12_345.678), else: base
+      end
+    end
+
+    test "round trip with area and comment", %{lossy: webp} do
+      input = detections(4)
+
+      assert {:ok, with_exif} =
+               ExWebp.put_exif(webp, %{detections: input, user_comment: "Job 123", make: "M"})
+
+      assert {:ok, %{detections: output, user_comment: "Job 123", make: "M"}} =
+               ExWebp.get_exif(with_exif)
+
+      assert length(output) == 4
+      assert [%{class: "cod", x: 1.0, width: 200}, %{area: 12_345.678} | _] = output
+      assert_in_delta hd(output).confidence, 0.9345, 0.0001
+      refute Map.has_key?(hd(output), :area)
+    end
+
+    test "without a comment and with string and unknown keys", %{lossy: webp} do
+      detections = [%{"class" => "cod", "tracking_id" => 7}]
+      assert {:ok, with_exif} = ExWebp.put_exif(webp, %{"detections" => detections})
+      assert {:ok, exif} = ExWebp.get_exif(with_exif)
+      assert exif.detections == [%{"tracking_id" => 7, class: "cod"}]
+      refute Map.has_key?(exif, :user_comment)
+    end
+
+    test "empty list", %{lossy: webp} do
+      assert {:ok, with_exif} = ExWebp.put_exif(webp, %{detections: []})
+      assert {:ok, %{detections: []}} = ExWebp.get_exif(with_exif)
+    end
+
+    test "a plain comment is not mistaken for detections", %{lossy: webp} do
+      {:ok, with_exif} = ExWebp.put_exif(webp, %{user_comment: ~s({"detections": 1})})
+      assert {:ok, %{user_comment: ~s({"detections": 1})}} = ExWebp.get_exif(with_exif)
+    end
+
+    test "invalid and too large", %{lossy: webp} do
+      assert {:error, "Invalid value for EXIF key `detections`"} =
+               ExWebp.put_exif(webp, %{detections: :nope})
+
+      assert {:error, "Invalid value for EXIF key `detections`"} =
+               ExWebp.put_exif(webp, %{detections: [%{at: self()}]})
+
+      assert {:error, "EXIF data is too large" <> _} =
+               ExWebp.put_exif(webp, %{detections: detections(2_000)})
+    end
+
+    test "100 detections fit and are fast to add", %{lossless: webp} do
+      input = detections(100)
+      {:ok, tiff} = ExWebp.Exif.encode(%{detections: input})
+
+      avg = avg_microseconds(fn -> {:ok, _} = ExWebp.put_exif(webp, %{detections: input}) end)
+      {:ok, with_exif} = ExWebp.put_exif(webp, %{detections: input})
+      {_, decoded} = :timer.tc(fn -> ExWebp.get_exif(with_exif) end)
+
+      IO.puts("""
+
+      100 detections: #{byte_size(tiff)} B of EXIF
+        put_exif  #{Float.round(avg, 1)} µs (average of #{@iterations} runs)
+        get_exif  #{elem(:timer.tc(fn -> ExWebp.get_exif(with_exif) end), 0)} µs (single run)
+      """)
+
+      assert {:ok, %{detections: list}} = decoded
+      assert length(list) == 100
+      assert avg < @max_avg_microseconds
+    end
+  end
+
   describe "errors" do
     test "unknown key, invalid value and empty map", %{lossy: webp} do
       assert {:error, "Unknown EXIF key `nope`"} = ExWebp.put_exif(webp, %{nope: 1})

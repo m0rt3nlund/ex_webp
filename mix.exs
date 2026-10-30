@@ -1,13 +1,13 @@
 defmodule ExWebp.MixProject do
   use Mix.Project
 
-  @version "0.1.9"
+  @version "0.1.10"
 
   def project do
     [
       app: :ex_webp,
       version: @version,
-      elixir: "~> 1.15",
+      elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       package: package(),
       deps: deps()
