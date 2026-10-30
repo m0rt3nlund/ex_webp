@@ -37,7 +37,7 @@ defmodule ExWebp.MixProject do
       {:rustler, "~> 0.37", optional: true},
 
       # Release tools
-      {:version_tasks, "~> 0.12.0", only: [:dev], runtime: false}
+      {:ex_mas_tasks, path: "../ex_mas_tasks", only: [:dev], runtime: false}
     ]
   end
 end

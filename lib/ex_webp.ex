@@ -26,13 +26,41 @@ defmodule ExWebp do
 
     with {:ok, encode_opts} <-
            verify_quality_options(encode_opts, Keyword.get(opts, :quality, 50)),
-         {:ok, encode_opts} <- verify_crop_options(encode_opts, Keyword.get(opts, :crop, nil)) do
-      _encode(
-        body,
-        encode_opts
-      )
+         {:ok, encode_opts} <- verify_crop_options(encode_opts, Keyword.get(opts, :crop, nil)),
+         {:ok, webp} <- _encode(body, encode_opts) do
+      case Keyword.get(opts, :exif) do
+        nil -> {:ok, webp}
+        exif -> put_exif(webp, exif)
+      end
     end
   end
+
+  @doc """
+  Adds EXIF data to an existing WebP image, replacing any EXIF data already in it.
+
+  `exif` is a map of fields, see `ExWebp.Exif`, or an already encoded EXIF (TIFF) binary.
+  The image data itself is not touched, only the RIFF container is rewritten.
+
+      {:ok, webp} = ExWebp.put_exif(webp, %{date_time_original: DateTime.utc_now(), make: "Maskon"})
+  """
+  @spec put_exif(webp :: binary(), exif :: ExWebp.Exif.fields() | binary()) ::
+          {:ok, binary()} | {:error, String.t()}
+  def put_exif(webp, exif) when is_map(exif) do
+    with {:ok, exif} <- ExWebp.Exif.encode(exif), do: put_exif(webp, exif)
+  end
+
+  def put_exif(webp, exif) when is_binary(webp) and is_binary(exif),
+    do: ExWebp.Container.put_exif(webp, exif)
+
+  @doc "Reads the EXIF data of a WebP image as a map, see `ExWebp.Exif`."
+  @spec get_exif(webp :: binary()) :: {:ok, ExWebp.Exif.fields()} | :error | {:error, String.t()}
+  def get_exif(webp) do
+    with {:ok, exif} <- get_exif_binary(webp), do: ExWebp.Exif.decode(exif)
+  end
+
+  @doc "Reads the raw EXIF (TIFF) binary of a WebP image."
+  @spec get_exif_binary(webp :: binary()) :: {:ok, binary()} | :error | {:error, String.t()}
+  def get_exif_binary(webp), do: ExWebp.Container.get_exif(webp)
 
   defp verify_quality_options(opts, quality) when is_float(quality),
     do: {:ok, Map.put(opts, :quality, quality)}
