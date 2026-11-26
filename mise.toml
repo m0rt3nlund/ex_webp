@@ -1,0 +1,9 @@
+[tools]
+erlang = "28"
+elixir = "1.19"
+
+[tasks.checksum]
+description = "Download precompiled NIFs for all targets and generate the checksum file"
+# Force a local build so the module compiles before the checksum file contains the new version
+env = { EXWEBP_COMPILE = "1" }
+run = "mix rustler_precompiled.download ExWebp --all --print --ignore-unavailable"
