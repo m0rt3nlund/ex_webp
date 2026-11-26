@@ -33,7 +33,7 @@ defmodule ExWebp.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:rustler_precompiled, "~> 0.8"},
+      {:rustler_precompiled, "~> 0.9"},
       {:rustler, "~> 0.37", optional: true},
 
       # Release tools
